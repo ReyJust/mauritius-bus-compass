@@ -1,0 +1,66 @@
+# Here you can define all your data sets by using simple YAML syntax.
+#
+# Documentation for this file format can be found in "The Data Catalog"
+# Link: https://docs.kedro.org/en/stable/data/data_catalog.html
+
+routes_pdfs:
+  type: PartitionedDataset
+  path: data/01_raw/routes
+  dataset:
+    type: mbc_data_processing.extras.datasets.pdf_dataset.PDFDataset
+  filename_suffix: '.pdf'
+
+# splitted_pdfs:
+#   type: PartitionedDataset
+#   path: data/01_raw/routes/splitted
+#   dataset:
+#     type: mbc_data_processing.extras.datasets.pdf_dataset.PDFDataset
+#   filename_suffix: '.pdf'
+
+pdfs_text:
+  type: PartitionedDataset
+  path: data/01_raw/routes
+  dataset:
+    type: mbc_data_processing.extras.datasets.pdf_page_dataset.PDFPageDataset
+    target: text
+  filename_suffix: '.pdf'
+
+pdfs_tables:
+  type: PartitionedDataset
+  path: data/01_raw/routes
+  dataset:
+    type: mbc_data_processing.extras.datasets.pdf_page_dataset.PDFPageDataset
+    target: tables
+    load_args:
+      flavor: lattice
+      process_background: False
+      split_text: False
+      line_scale: 40
+      npages: "${runtime_params:npages, null}"
+  filename_suffix: '.pdf'
+
+summary_tables:
+  type: PartitionedDataset
+  path: data/01_raw/extracted/summary_tables
+  dataset:
+    type: pandas.CSVDataSet
+  filename_suffix: '.csv'
+
+stage_tables:
+  type: PartitionedDataset
+  path: data/01_raw/extracted/stage_tables
+  dataset:
+    type: pandas.CSVDataSet
+  filename_suffix: '.csv'
+
+weekdays_freq_tables:
+  type: PartitionedDataset
+  path: data/01_raw/extracted/weekdays_freq_tables
+  dataset:
+    type: pandas.CSVDataSet
+  filename_suffix: '.csv'
+
+
+# parsed_summary_tables:
+#   type: pandas.CSVDataSet
+#   filepath: data/02_intermediate/parsed_summary_tables.csv

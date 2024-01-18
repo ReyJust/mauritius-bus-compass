@@ -1,0 +1,7 @@
+I tried to run the extraction node for all pages but I encountered an error when parsing the route numbers:
+```Exception: Failed to parse route no from: Routes 
+11 and 
+11A```
+
+I need a better function that will pass most edge cases:
+"Route 10A, Route 1 Including A/C Buses, Routes 11 and 11A, Route 17 / 17G" => ["10A", "1/1A/1C", "11/11A", "17/17G"]

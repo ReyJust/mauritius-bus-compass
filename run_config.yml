@@ -1,0 +1,3 @@
+run:
+  pipeline: process
+  # nodes: pdf_extraction
