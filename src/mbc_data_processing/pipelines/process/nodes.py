@@ -7,6 +7,9 @@ import re
 import pandas as pd
 from typing import Dict
 from PyPDF2 import PdfWriter
+import logging
+
+log = logging.getLogger(__name__)
 
 def pdf_splitting(documents: Dict[str, callable], max_pages: int):
 
@@ -34,16 +37,29 @@ def get_page_title(pdf_text):
     return pdf_text.split("\n")[0].strip()[3:]
 
 
-def get_route_no(summary_table):
+def get_route_no(summary_table)-> list[str]:
     route_no_cell = summary_table.loc[0][0]
 
-    route_no = re.findall(r"Route\s*(\d+[A-Za-z]*)", route_no_cell)
+    route_no = re.findall(r"(\d{1,3}[a-zA-Z]?)", route_no_cell)
 
-    if not route_no:
+    if len(route_no) == 0:
         print(summary_table)
         raise Exception(f"Failed to parse route no from: {route_no_cell}")
-    return route_no[0]
+    
+    if "including" in route_no_cell.lower():
+        including_nos = re.findall(r"([a-zA-Z])\/([a-zA-Z])", route_no_cell)
 
+
+        if len(including_nos) == 0:
+            raise Exception(f"Fail to parse route no with Including keyword: {route_no_cell}")
+        
+        route_no.extend([ f"{route_no[0]}{no}" for no in including_nos[0] ])
+
+    return route_no
+
+
+class PDFExtractionException(Exception):
+    """"""
 
 def pdf_extraction(tables_documents, text_documents):
     if len(tables_documents) != len(text_documents):
@@ -57,49 +73,60 @@ def pdf_extraction(tables_documents, text_documents):
     weekday_freq_tables = {}
 
     for filename in text_documents:
-        tables_from_pages = tables_documents[filename]()
-        text_from_pages = text_documents[filename]()
+        try:
+            tables_from_pages = tables_documents[filename]()
+            text_from_pages = text_documents[filename]()
 
-        if len(tables_from_pages) != len(text_from_pages):
-            raise Exception(
-                f"Different qty of pages between tables and text: {len(tables_from_pages)=} vs {len(text_from_pages)=}"
-            )
-        route_no = None
-
-        pg_qty = len(text_from_pages)
-        for page_index in range(pg_qty):
-            page_tables = tables_from_pages[page_index]
-            page_text = text_from_pages[page_index]
-
-            # <TableList n=1> ==> It's the end of another table
-            if len(page_tables) == 1:
-                if not route_no:
-                    raise Exception(
-                        f"The first pdf page seems to not start with the summary table required to get the route_no. {page_index=}"
-                    )
-                
-                weekday_freq_tables[route_no] = pd.concat(
-                    weekday_freq_tables[route_no], page_tables[1].df
+            if len(tables_from_pages) != len(text_from_pages):
+                raise Exception(
+                    f"Different qty of pages between tables and text: {len(tables_from_pages)=} vs {len(text_from_pages)=}"
                 )
+            route_no = None
 
-            else:
-                weekday_freq_table = None
+            pg_qty = len(text_from_pages)
+            for page_index in range(pg_qty):
+                page_tables = tables_from_pages[page_index]
+                page_text = text_from_pages[page_index]
 
-                if len(page_tables) == 3:  # There is a  weekday frequency table
-                    weekday_freq_table = page_tables[1].df
+                # Empty page
+                if len(page_tables) == 0:
+                    continue
 
-                summary_table = page_tables[0].df  # Always the last
+                # <TableList n=1> ==> It's the end of another table
+                elif len(page_tables) == 1:
+                    if not route_no:
+                        raise Exception(
+                            f"The first pdf page seems to not start with the summary table required to get the route_no. {page_index=}"
+                        )
+                    
+                    # ! We use the 'route_no' just declared in the previous loop since that page is the continuation.
+                    for no in route_no:
+                        stage_tables[no] = pd.concat(
+                            [stage_tables[no], page_tables[0].df], axis=0
+                        )
 
-                route_no = get_route_no(summary_table)
+                else:
 
-                stage_table = page_tables[-1].df
+                    summary_table = page_tables[0].df
 
-                page_title = get_page_title(page_text)
+                    route_no: list[str] = get_route_no(summary_table)
 
-                titles[route_no] = page_title
-                summary_tables[route_no] = summary_table
-                stage_tables[route_no] = stage_table
-                weekday_freq_tables[route_no] = weekday_freq_table
+                    stage_table = page_tables[-1].df # Always the last
+
+                    page_title = get_page_title(page_text)
+
+                    if len(page_tables) == 3:  # There is a weekday frequency table
+                        weekday_freq_table = page_tables[1].df
+
+                    for no in route_no:
+                        titles[no] = page_title
+                        weekday_freq_tables[no] = weekday_freq_table
+                        summary_tables[no] = summary_table
+                        stage_tables[no] = stage_table
+
+                    
+        except Exception as e:
+            raise PDFExtractionException(f"FILE: {filename}, PAGE: {page_index} : {e}")
 
     return titles, summary_tables, stage_tables, weekday_freq_tables
 
@@ -111,16 +138,25 @@ def parse_summary_tables(summary_tables):
 
     summary_tables = {k: v() for k, v in summary_tables.items()}
 
-    parsed_summary_tables = []
+    parsed_summary_tables = {}
+    referencing_summary_tables = {}
+    not_parsable_summary_tables = {}
     for route_no, summary_table in summary_tables.items():
-        df = summary_table.drop("0", axis=1)
-        df = df.fillna(pd.NA)
-        df = df.map(clean_spaces, na_action="ignore")
-        df = df.apply(lambda x: x.str.strip())
-        df = set_company_name(df, 0, 0, "company")
-        df = arrange_df(df)
+        try:
+            
+            if summary_table.shape[1] == 3 and summary_table['2'][0].startswith("Service provided by buses of"):
+                referencing_summary_tables[route_no] = summary_table
 
-        if df.shape[1] == 8:
+                continue
+
+            df = summary_table.drop("0", axis=1)
+            df = df.fillna(pd.NA)
+            df = df.map(clean_spaces, na_action="ignore")
+            df = df.dropna(axis=1, how='all')
+            df = df.apply(lambda x: x.str.strip())
+            df = set_company_name(df, 0, 0, "company")
+            df = arrange_df(df)
+
             df.columns = [
                 "starting_point",
                 "weekdays_1st_bus",
@@ -131,37 +167,84 @@ def parse_summary_tables(summary_tables):
                 "sundays_&_public_holidays_last_bus",
                 "company",
             ]
+
+            df = set_route_no(df, route_no)
+
+            parsed_summary_tables[route_no] = df
+        except Exception as e:
+            log.warn(f"NOT PARSABLE: summary_tables, {route_no}: {e}")
+
+            not_parsable_summary_tables[route_no] = summary_table
+
+    for route_no, table in referencing_summary_tables.items():
+        referencing_to = table['2'][0].split(" ")[-1]
+
+        if referencing_to.isdigit():
+            parsed_summary_tables[route_no] = parsed_summary_tables[referencing_to]
         else:
-            df = start_end_split(df, sep, after_col_split_names, cols_to_split)
+            log.warn(f"FAIL TO GET ROUTE NO IN REFERENCING TABLE, {route_no}")
+            not_parsable_summary_tables[route_no] = table
 
-        df = set_route_no(df, route_no)
-        parsed_summary_tables.append(df)
-
-    return pd.concat(parsed_summary_tables)
+    return pd.concat([ parsed_summary_tables[k] for k in parsed_summary_tables]), not_parsable_summary_tables
 
 
-def start_end_split(df, sep, after_col_split_names, cols_to_split):
-    df = df.copy()
-
-    for to_split_col in cols_to_split:
-        splitted = df[to_split_col].str.split(sep, expand=True)
-        splitted.columns = [f"{to_split_col}_{col}" for col in after_col_split_names]
-
-        df.drop(to_split_col, axis=1, inplace=True)
-
-        df = pd.concat([df, splitted], axis=1)
+def set_first_row_as_cols(df):
+    df.columns = df.iloc[0].str.lower().str.replace(" ", "_") # Normalize col names in first row and # Set them as col names
+    df = df[1:] # Pop the first row
 
     return df
+
+def parse_stage_tables(stage_tables):
+    stage_tables = {k: v() for k, v in stage_tables.items()}
+
+    parsed_stage_tables = {}
+    not_parsable_stage_tables = {}
+    for route_no, stage_table in stage_tables.items():
+        try:
+            df = stage_table.fillna(pd.NA)
+            df = df.map(clean_spaces, na_action="ignore")
+            df = df.dropna(axis=1, how='all')
+            df = df.apply(lambda x: x.str.strip())
+            df = df.apply(lambda x: x.str.strip("."))
+            df.iloc[0] = df.iloc[0].apply(lambda x: x.replace('\n', ''))
+
+            df = set_first_row_as_cols(df)
+
+            df = df.rename(mapper={"average_journey_times_in_munutes": "average_journey_times_in_minutes"}, axis=1)
+            
+            # Split the table 3 - 3 cols.
+            direction_1 = df.loc[:, ~df.columns.duplicated(keep='first')]
+            direction_2 = df.loc[:, ~df.columns.duplicated(keep='last')]
+
+            # Add Direction 1 - 2 column
+            direction_1 = direction_1.copy()
+            direction_2 = direction_2.copy()
+            direction_1.loc[:, 'direction'] = 1
+            direction_2.loc[:, 'direction'] = 2
+            direction_1.loc[:, 'route_no'] = route_no
+            direction_2.loc[:, 'route_no'] = route_no
+            
+            # Concat right underneith
+            parsed_stage_table = pd.concat([direction_1, direction_2], axis=0)
+            parsed_stage_tables[route_no] = parsed_stage_table
+
+        except Exception as e:
+            log.warn(f"NOT PARSABLE: stage_tables, {route_no}: {e}")
+
+            not_parsable_stage_tables[route_no] = stage_table
+
+    return pd.concat([ parsed_stage_tables[k] for k in parsed_stage_tables], axis=0), not_parsable_stage_tables
 
 
 def arrange_df(df):
     df = df.copy()
 
-    df.iloc[0, 0] = "starting_point"
-    df["company"].iloc[0] = "company"
-    df.columns = df.iloc[0].str.lower().str.replace(" ", "_")
-    df = df[1:]
-    df = df.drop(1, axis=0)
+    df.iloc[0, 0] = "starting_point" # Set the first as the col name
+    df["company"].iloc[0] = "company" # Set the first as the col name
+
+    df = set_first_row_as_cols(df)
+
+    df = df.drop(1, axis=0) # Drop the first/last bus row
 
     return df
 

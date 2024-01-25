@@ -39,6 +39,31 @@ pdfs_tables:
       npages: "${runtime_params:npages, null}"
   filename_suffix: '.pdf'
 
+pkl_pdfs_text:
+  type: PartitionedDataset
+  path: data/01_raw/routes/pkls
+  dataset:
+    type: pickle.PickleDataSet
+    save_args:
+      backend: pickle
+  filename_suffix: '.pkl'
+
+pkl_pdfs_tables:
+  type: PartitionedDataset
+  path: data/01_raw/routes/pkls
+  dataset:
+    type: pickle.PickleDataSet
+    save_args:
+      backend: pickle
+  filename_suffix: '.pkl'
+
+titles:
+  type: PartitionedDataset
+  path: data/01_raw/extracted/titles
+  dataset:
+    type: text.TextDataSet
+  filename_suffix: '.txt'
+
 summary_tables:
   type: PartitionedDataset
   path: data/01_raw/extracted/summary_tables
@@ -61,6 +86,35 @@ weekdays_freq_tables:
   filename_suffix: '.csv'
 
 
-# parsed_summary_tables:
-#   type: pandas.CSVDataSet
-#   filepath: data/02_intermediate/parsed_summary_tables.csv
+parsed_summary_tables:
+  type: pandas.CSVDataSet
+  filepath: data/02_intermediate/parsed_summary_tables.csv
+
+not_parsable_summary_tables:
+  type: PartitionedDataset
+  path: data/02_intermediate/not_parsable/summary_tables
+  dataset:
+    type: pandas.CSVDataSet
+  filename_suffix: '.csv'
+
+parsed_stage_tables:
+  type: pandas.CSVDataSet
+  filepath: data/02_intermediate/parsed_stage_tables.csv
+
+not_parsable_stage_tables:
+  type: PartitionedDataset
+  path: data/02_intermediate/not_parsable/stage_tables
+  dataset:
+    type: pandas.CSVDataSet
+  filename_suffix: '.csv'
+
+parsed_weekdays_freq_tables:
+  type: pandas.CSVDataSet
+  filepath: data/02_intermediate/parsed_weekdays_freq_tables.csv
+
+not_parsed_weekdays_freq_tables:
+  type: PartitionedDataset
+  path: data/02_intermediate/not_parsable/weekdays_freq_tables
+  dataset:
+    type: pandas.CSVDataSet
+  filename_suffix: '.csv'
