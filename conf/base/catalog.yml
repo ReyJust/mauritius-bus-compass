@@ -112,7 +112,7 @@ parsed_weekdays_freq_tables:
   type: pandas.CSVDataSet
   filepath: data/02_intermediate/parsed_weekdays_freq_tables.csv
 
-not_parsed_weekdays_freq_tables:
+not_parsable_weekdays_freq_tables:
   type: PartitionedDataset
   path: data/02_intermediate/not_parsable/weekdays_freq_tables
   dataset:

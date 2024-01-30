@@ -1,3 +1,7 @@
-Big Progress! I parsed the stage tables, and the summary tables, (I do have some failure in summary table to addres.)
+Still parsing edge cases of weekday freq tables
 
-Now! Weekday frequency tables !!
+Trying to enrich with summary table, 1st and last bus, when time_of_departure is missing.
+
+
+- Need to handle static_departures
+- Need to parse edge case of summary table
