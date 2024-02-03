@@ -23,7 +23,7 @@ def create_pipeline(**kwargs) -> Pipeline:
             ),
             node(
                 func=nodes.parse_summary_tables,
-                inputs="summary_tables",
+                inputs=["summary_tables", "params:summary.edge_cases"],
                 outputs=["parsed_summary_tables", "not_parsable_summary_tables"],
                 name="parse_summary_tables",
             ),
@@ -35,7 +35,7 @@ def create_pipeline(**kwargs) -> Pipeline:
             ),
             node(
                 func=nodes.parse_weekdays_freq_tables,
-                inputs=["weekdays_freq_tables", "parsed_summary_tables"],
+                inputs=["weekdays_freq_tables", "parsed_summary_tables", "params:weekdays_freq.edge_cases"],
                 outputs=["parsed_weekdays_freq_tables", "not_parsable_weekdays_freq_tables"],
                 name="parse_weekdays_freq_tables",
             )

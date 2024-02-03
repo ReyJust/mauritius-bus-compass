@@ -111,7 +111,82 @@ def pdf_extraction(tables_documents, text_documents):
     return titles, summary_tables, stage_tables, weekday_freq_tables
 
 
-def parse_summary_tables(summary_tables):
+
+def arrange_df(df):
+    df = df.copy()
+
+    df.iloc[0, 0] = "starting_point"  # Set the first as the col name
+    df["operator"].iloc[0] = "operator"  # Set the first as the col name
+
+
+    for column_name in df.columns:
+        if (df[column_name].iloc[1:].isna().all()):
+            df = df.drop(column_name, axis=1)
+
+    df = set_first_row_as_cols(df)
+
+    df = df.drop(1, axis=0)  # Drop the first/last bus row
+
+    return df
+
+def process_summary_edge_cases(summary_table: pd.DataFrame, route_no: str)-> pd.DataFrame:
+    summary_table = summary_table.copy()
+
+    # if route_no in ['5', '8B']:
+    summary_table = pd.DataFrame(columns=[
+                "starting_point",
+                "weekdays_1st_bus",
+                "weekdays_last_bus",
+                "saturdays_1st_bus",
+                "saturdays_last_bus",
+                "sundays_&_public_holidays_1st_bus",
+                "sundays_&_public_holidays_last_bus",
+                "operator",
+            ])
+    
+    return summary_table
+
+def process_week_partial_table(df):
+    df = df.copy()
+
+    week_part = df.loc[0,'2']
+
+    for column_name in df.columns:
+            if ( (df[column_name].iloc[1:] == '1 trip').all() ):
+                df = df.drop(column_name, axis=1)
+
+    if all([key in week_part for key in ['Weekdays', 'Saturdays', 'Sundays', 'Holidays']]):
+        print("AAAA")
+
+    elif 'Weekdays' in week_part:
+        df['4'] = pd.NA
+        df['5'] = pd.NA
+        df['6'] = pd.NA
+        df['7'] = pd.NA
+        new_row = pd.DataFrame(data={'1': [pd.NA], '2': ["1st bus"], '3': ["Last bus"], '4': ["1st bus"], '5': ["Last bus"], '6': ["1st bus"], '7': ["Last bus"]})
+
+        df = pd.concat([df.iloc[:1], new_row, df.iloc[1:]]).reset_index(drop=True)
+        df = df[['1', '2', '3', '4', '5', '6', '7', 'operator']]
+        print(df)
+
+    elif 'Holidays' in week_part:
+        df = df.rename({"2": "6"}, axis=1)
+        df['2'] = pd.NA
+        df['3'] = pd.NA
+        df['4'] = pd.NA
+        df['5'] = pd.NA
+        df['7'] = pd.NA
+        # new_row = pd.DataFrame(data={'1': [pd.NA], '2': ["1st bus"], '3': ["Last bus"], '4': ["1st bus"], '5': ["Last bus"], '6': ["1st bus"], '7': ["Last bus"]})
+        new_row = pd.DataFrame(columns=['1', '2', '3', '4', '5', '6', '7', 'operator'])
+        new_row.loc[0] = pd.NA
+
+        df = pd.concat([df.iloc[:1], new_row, df.iloc[1:]]).reset_index(drop=True)
+        df = df[['1', '2', '3', '4', '5', '6', '7', 'operator']]
+        print(df)
+
+    return df
+
+def parse_summary_tables(summary_tables: Dict[str, pd.DataFrame], edge_cases: list[str]):
     summary_tables = {k: v() for k, v in summary_tables.items()}
 
     parsed_summary_tables = {}
@@ -126,24 +201,36 @@ def parse_summary_tables(summary_tables):
 
                 continue
 
-            df = summary_table.drop("0", axis=1)
-            df = df.fillna(pd.NA)
-            df = df.map(clean_spaces, na_action="ignore")
-            df = df.dropna(axis=1, how="all")
-            df = df.apply(lambda x: x.str.strip())
-            df = set_company_name(df, 0, 0, "company")
-            df = arrange_df(df)
 
-            df.columns = [
-                "starting_point",
-                "weekdays_1st_bus",
-                "weekdays_last_bus",
-                "saturdays_1st_bus",
-                "saturdays_last_bus",
-                "sundays_&_public_holidays_1st_bus",
-                "sundays_&_public_holidays_last_bus",
-                "company",
-            ]
+            if route_no in edge_cases:
+                df = process_summary_edge_cases(df, route_no)
+            else:
+                if route_no == '180':
+                    print('i')
+                    # 180 Weekdays, Saturdays, Sundays and Public Holidays in a single cell
+
+                df = summary_table.drop("0", axis=1)
+                df = df.fillna(pd.NA)
+                df = df.map(clean_spaces, na_action="ignore")
+                df = df.dropna(axis=1, how="all")
+                df = df.apply(lambda x: x.str.strip())
+                df = set_operator(df, 0, 0, "operator")
+
+                if df.shape[1] <= 4:
+                    df = process_week_partial_table(df)
+
+                df = arrange_df(df)
+                
+                df.columns = [
+                    "starting_point",
+                    "weekdays_1st_bus",
+                    "weekdays_last_bus",
+                    "saturdays_1st_bus",
+                    "saturdays_last_bus",
+                    "sundays_&_public_holidays_1st_bus",
+                    "sundays_&_public_holidays_last_bus",
+                    "operator",
+                ]
 
             df = set_route_no(df, route_no)
             df = df.copy()
@@ -233,6 +320,9 @@ def have_static_departures(freq_table: pd.DataFrame)-> pd.DataFrame:
     # Return true if any cell contains count("-") > 1 
     return (freq_table.map(lambda x: str(x).count('-')) > 1).any().any()
 
+def is_horizontal_static_departures(df, column_name):
+    return all(df[column_name] == 'Time of departure')
+
 def split_time_of_departure(row, col_name):
     start, end = pd.NA, pd.NA
 
@@ -249,15 +339,32 @@ def split_time_of_departure(row, col_name):
     splitted = splitted.map(lambda x: x.strip(), na_action="ignore")
     return splitted
 
-def normalize_weekday_freq_table(freq_table: pd.DataFrame)-> pd.DataFrame:
+def normalize_weekday_freq_table(freq_table: pd.DataFrame, route_no: str, edge_cases: list[str])-> pd.DataFrame:
     df = freq_table.copy()
     df = df.map(lambda x: x.replace("–", "-"), na_action="ignore")
     df = df.map(lambda x: x.replace(" - ", "-"), na_action="ignore")
+    df = df.map(lambda x: x.replace("(Additional departures on market days)", ""), na_action="ignore")
     if (df.shape[0] <= 2):
+        if is_horizontal_static_departures(df, '1'):
+            df['1'] = df.iloc[:, 2:].apply(lambda row: '-'.join(row.dropna()), axis=1)
+            df = df.drop(df.columns[2:], axis=1)
+
         df.loc[-1] = pd.Series({"0": "Time of departure"})
         df = df.sort_index().reset_index(drop=True)
 
+    if route_no in edge_cases:
+        df = process_wk_edge_cases(df, route_no)
+
     return df.T
+
+def process_wk_edge_cases(df: pd.DataFrame, route_no: str)-> pd.DataFrame:
+    df = df.copy()
+
+    if route_no == '7':
+        df['1'] = df.iloc[:, 1:].apply(lambda row: '-'.join(row.dropna()), axis=1)
+        df = df.drop(df.columns[2:], axis=1)
+
+    return df
 
 def get_weekday_time_interval(first_last: Union[Literal["1st"], Literal["last"]], direction: Union[Literal[1], Literal[2]], df: pd.DataFrame):
     return df.loc[df['direction'] == 1, f'weekdays_{first_last}_bus'].values[0] if direction in df['direction'].values else ""
@@ -271,24 +378,44 @@ def enrich_tods(
         freq_table.loc[freq_table['direction'] == 1, 'time_of_departure'] = f"{get_weekday_time_interval('1st', 1, route_no_summaries)}-{get_weekday_time_interval('last', 1, route_no_summaries)}"
         freq_table.loc[freq_table['direction'] == 1, 'time_of_departure'] = f"{get_weekday_time_interval('1st', 2, route_no_summaries)}-{get_weekday_time_interval('last', 2, route_no_summaries)}"
 
-
+    return freq_table
 
 def parse_weekdays_freq_tables(
-    weekdays_freq_tables: dict[str, pd.DataFrame], parsed_summary_tables: pd.DataFrame
+    weekdays_freq_tables: dict[str, pd.DataFrame], parsed_summary_tables: pd.DataFrame, edge_cases: list[str]
 ) -> pd.DataFrame:
     departure_col = "departure_time_window"
     weekdays_freq_tables = {k: v() for k, v in weekdays_freq_tables.items()}
 
     parsed_weekdays_freq_tables = {}
-    fixed_tod_weekdays_freq_tables = {}
     not_parsable_weekdays_freq_tables = {}
     for route_no, freq_table in weekdays_freq_tables.items():
         try:
-            df = normalize_weekday_freq_table(freq_table)
+
+            df = normalize_weekday_freq_table(freq_table, route_no, edge_cases)
+
 
             if (have_static_departures(df)):
-                fixed_tod_weekdays_freq_tables[route_no] = df
-                continue
+                df = df.drop([0], axis=1)
+
+                parsed = pd.DataFrame()
+
+                parsed[0] = df[1].str.split('-').explode().reset_index(drop=True)
+                parsed[0] = parsed[0] + '-'
+                # Empty columns except first cell with Direction 1
+                parsed[1] = pd.Series()
+                parsed[2] = df[2].str.split('-').explode().reset_index(drop=True)
+                parsed[2] = parsed[2] + '-'
+                # parsed[2] = df['your_column'].astype(str)
+                # Empty columns except first cell with Direction 2
+                parsed[3] = pd.Series()
+
+
+                parsed.iloc[0, 0] = 'Time of departure'
+                parsed.iloc[0, 1] = 'Direction 1'
+                parsed.iloc[0, 2] = 'Time of departure'
+                parsed.iloc[0, 3] = 'Direction 2'
+
+                df = parsed
 
 
             df = df.fillna(pd.NA)
@@ -340,8 +467,10 @@ def parse_weekdays_freq_tables(
 
         except Exception as e:
             log.warn(f"NOT PARSABLE: weekdays_freq_tables, {route_no}: {e}")
+            raise Exception(e)
 
             not_parsable_weekdays_freq_tables[route_no] = freq_table
+
 
     return (
         pd.concat(
@@ -352,26 +481,14 @@ def parse_weekdays_freq_tables(
     )
 
 
-def arrange_df(df):
-    df = df.copy()
 
-    df.iloc[0, 0] = "starting_point"  # Set the first as the col name
-    df["company"].iloc[0] = "company"  # Set the first as the col name
-
-    df = set_first_row_as_cols(df)
-
-    df = df.drop(1, axis=0)  # Drop the first/last bus row
-
-    return df
-
-
-def set_company_name(
-    df: pd.DataFrame, x: int, y: int, company_col_name: str
+def set_operator(
+    df: pd.DataFrame, x: int, y: int, operator_col_name: str
 ) -> pd.DataFrame:
     df = df.copy()
-    company_name = df.iloc[x, y]
+    operator_name = df.iloc[x, y]
 
-    df[company_col_name] = company_name
+    df[operator_col_name] = operator_name
 
     return df
 

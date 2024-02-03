@@ -4,5 +4,22 @@
 # Documentation for this file format can be found in "Parameters"
 # Link: https://docs.kedro.org/en/0.18.14/configuration/parameters.html
 
-split_pdf:
-  max_pages: 30
+summary:
+  edge_cases:
+    - '245'
+    - '246'
+    - '248'
+    - '5A'
+    - '8B'
+    - '66C'
+    - '179'
+    - '179A'
+  freq_in_summary:
+  - '60'
+  - '230'
+  - '216'
+  - '217'
+
+weekdays_freq:
+  edge_cases:
+    - '7'

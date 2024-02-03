@@ -1,7 +1,3 @@
-Still parsing edge cases of weekday freq tables
+Still parsing edge case of summary table, but it feel really complicated.
 
-Trying to enrich with summary table, 1st and last bus, when time_of_departure is missing.
-
-
-- Need to handle static_departures
-- Need to parse edge case of summary table
+I need to handle freq_in_summary for example
