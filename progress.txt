@@ -1,3 +1,6 @@
-Still parsing edge case of summary table, but it feel really complicated.
+THERE IS DUPLICATE ROUTE NUMBER!
 
-I need to handle freq_in_summary for example
+[ k for k in parsed_stbls if len(parsed_stbls[k].columns) != 9 ]
+['180', '181', '188', '189', '1D', '206A', '207A', '207B', '207C', '210B', '216', '217', '230', '60']
+
+I need to handle freq_in_summary

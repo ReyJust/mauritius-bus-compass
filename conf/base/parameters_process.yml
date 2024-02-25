@@ -6,20 +6,147 @@
 
 summary:
   edge_cases:
-    - '245'
-    - '246'
-    - '248'
-    - '5A'
-    - '8B'
-    - '66C'
-    - '179'
-    - '179A'
-  freq_in_summary:
-  - '60'
-  - '230'
-  - '216'
-  - '217'
+    "86":
+      starting_point: ["Port Louis", "Rivière Du Rempart"]
+      weekdays_1st_bus: ["14h30", "16h00"]
+      weekdays_last_bus: [null, null]
+      saturdays_1st_bus: [null, null]
+      saturdays_last_bus: [null, null]
+      sundays_&_public_holidays_1st_bus: [null, null]
+      sundays_&_public_holidays_last_bus: [null, null]
+      operator: ["NTC", "NTC"]
+
+    "114A": #There is a small gap in the lines preventing from reading it properly :(
+      starting_point: ["Curepipe", "Wootun"]
+      weekdays_1st_bus: ["06h15", "06h15"]
+      weekdays_last_bus: ["19h00", "18h45"]
+      saturdays_1st_bus: ["06h15", "06h15"]
+      saturdays_last_bus: ["19h00", "18h45"]
+      sundays_&_public_holidays_1st_bus: ["06h15", "06h15"]
+      sundays_&_public_holidays_last_bus: ["19h00", "18h45"]
+      operator: ["Individual Operator", "Individual Operator"]
+
+    "175":
+      starting_point: ["Creve Coeur", "S.S.R.N Hospital"]
+      weekdays_1st_bus: ["14h45", "16h30"]
+      weekdays_last_bus: [null, null]
+      saturdays_1st_bus: ["14h45", "16h30"]
+      saturdays_last_bus: [null, null]
+      sundays_&_public_holidays_1st_bus: ["14h45", "16h30"]
+      sundays_&_public_holidays_last_bus: [null, null]
+      operator: ["MBT", "MBT"]
+
+    "191":
+      starting_point: ["Creve Coeur", "S.S.R.N Hospital"]
+      weekdays_1st_bus: ["14h45", "16h30"]
+      weekdays_last_bus: [null, null]
+      saturdays_1st_bus: ["14h45", "16h30"]
+      saturdays_last_bus: [null, null]
+      sundays_&_public_holidays_1st_bus: ["14h45", "16h30"]
+      sundays_&_public_holidays_last_bus: [null, null]
+      operator: ["MBT", "MBT"]
+
+    "202":
+      starting_point: ["Creve Coeur", "S.S.R.N Hospital"]
+      weekdays_1st_bus: ["14h45", "16h30"]
+      weekdays_last_bus: [null, null]
+      saturdays_1st_bus: ["14h45", "16h30"]
+      saturdays_last_bus: [null, null]
+      sundays_&_public_holidays_1st_bus: ["14h45", "16h30"]
+      sundays_&_public_holidays_last_bus: [null, null]
+      operator: ["MBT", "MBT"]
+
+    "249":
+      starting_point:
+        ["Port Louis (Victoria Square)", "Port Louis (Victoria Square)"]
+      weekdays_1st_bus: ["06h00", "06h45"]
+      weekdays_last_bus: [null, null]
+      saturdays_1st_bus: [null, null]
+      saturdays_last_bus: [null, null]
+      sundays_&_public_holidays_1st_bus: [null, null]
+      sundays_&_public_holidays_last_bus: [null, null]
+      operator: ["UBS", "UBS"]
+
+    # - '245'
+    # - '246'
+    # - '248'
+    # - '5A'
+    # - '8B'
+    # - '66C'
+    # - '179'
+    # - '179A'
+
+    # - '191'
+    # - '1D'
+    # - '202'
+    # - '207A'
+    # - '210B'
+
+    # - '156A'
+
+stage:
+  edge_cases:
+    journey_time:
+      direction_1:
+        "10":
+          action: skip
+        13A:
+          action: skip
+        "176":
+          action: skip
+        "43":
+          action: skip
+        "99":
+          action: skip
+        99A:
+          action: skip
+
+        "103A":
+          action: set
+          idx: 10
+          value: 43.5
+        "153":
+          action: set
+          idx: 11
+          value: 50
+
+        "242":
+          action: set
+          idx: 12
+          value: 50
+
+      direction_2:
+        "10":
+          action: skip
+        13A:
+          action: skip
+        "227":
+          action: skip
+        "43":
+          action: skip
+        "99":
+          action: skip
+        99A:
+          action: skip
+
+        "153":
+          action: set
+          idx: 10
+          value: 50
+        "156":
+          action: set
+          idx: 11
+          value: 40
+        "20C":
+          action: set
+          idx: 25
+          value: 96
+
+        "200":
+          action: reverse
+        "27":
+          action: reverse
 
 weekdays_freq:
   edge_cases:
-    - '7'
+    - "7"

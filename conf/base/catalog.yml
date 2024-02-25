@@ -58,11 +58,8 @@ pkl_pdfs_tables:
   filename_suffix: '.pkl'
 
 titles:
-  type: PartitionedDataset
-  path: data/01_raw/extracted/titles
-  dataset:
-    type: text.TextDataSet
-  filename_suffix: '.txt'
+  type: pandas.CSVDataSet
+  filepath: data/01_raw/extracted/titles.csv
 
 summary_tables:
   type: PartitionedDataset
@@ -85,6 +82,10 @@ weekdays_freq_tables:
     type: pandas.CSVDataSet
   filename_suffix: '.csv'
 
+
+parsed_titles:
+  type: pandas.CSVDataSet
+  filepath: data/02_intermediate/parsed_titles.csv
 
 parsed_summary_tables:
   type: pandas.CSVDataSet
